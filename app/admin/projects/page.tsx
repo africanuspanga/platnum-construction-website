@@ -517,7 +517,7 @@ export default function AdminProjectsPage() {
             <CardHeader>
               <div className="flex justify-between items-start">
                 <div className="flex-1">
-                  <CardTitle className="text-xl mb-2">{project.name}</CardTitle>
+                  <CardTitle className="text-xl mb-2 text-white">{project.name}</CardTitle>
                   <Badge className={getStatusColor(project.status)}>{project.status.replace("_", " ")}</Badge>
                 </div>
                 <div className="flex gap-2">
@@ -532,46 +532,58 @@ export default function AdminProjectsPage() {
                       Approve & Assign
                     </Button>
                   )}
-                  <Button variant="ghost" size="icon" onClick={() => openEditDialog(project)}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => openEditDialog(project)}
+                    className="text-slate-300 hover:text-white"
+                  >
                     <Edit className="w-4 h-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleDeleteProject(project.id)}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleDeleteProject(project.id)}
+                    className="hover:bg-slate-700"
+                  >
                     <Trash2 className="w-4 h-4 text-red-500" />
                   </Button>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              {project.description && <CardDescription className="line-clamp-2">{project.description}</CardDescription>}
+              {project.description && (
+                <CardDescription className="line-clamp-2 text-slate-300">{project.description}</CardDescription>
+              )}
 
               <div className="space-y-2 text-sm">
                 <div className="flex items-center gap-2">
-                  <User className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Client:</span>
-                  <span className="font-medium">{project.client?.full_name || "N/A"}</span>
+                  <User className="w-4 h-4 text-slate-400" />
+                  <span className="text-slate-400">Client:</span>
+                  <span className="font-medium text-white">{project.client?.full_name || "N/A"}</span>
                 </div>
 
                 {project.manager && (
                   <div className="flex items-center gap-2">
-                    <Building className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-muted-foreground">Manager:</span>
-                    <span className="font-medium">{project.manager.full_name}</span>
+                    <Building className="w-4 h-4 text-slate-400" />
+                    <span className="text-slate-400">Manager:</span>
+                    <span className="font-medium text-white">{project.manager.full_name}</span>
                   </div>
                 )}
 
                 {project.budget && (
                   <div className="flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-muted-foreground">Budget:</span>
-                    <span className="font-medium">${project.budget.toLocaleString()}</span>
+                    <DollarSign className="w-4 h-4 text-slate-400" />
+                    <span className="text-slate-400">Budget:</span>
+                    <span className="font-medium text-white">${project.budget.toLocaleString()}</span>
                   </div>
                 )}
 
                 {project.start_date && (
                   <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-muted-foreground">Start:</span>
-                    <span className="font-medium">{new Date(project.start_date).toLocaleDateString()}</span>
+                    <Calendar className="w-4 h-4 text-slate-400" />
+                    <span className="text-slate-400">Start:</span>
+                    <span className="font-medium text-white">{new Date(project.start_date).toLocaleDateString()}</span>
                   </div>
                 )}
               </div>
