@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MapPin } from "lucide-react"
+import Image from "next/image"
 
 export default function ProjectsPage() {
   const completedProjects = [
@@ -13,60 +14,87 @@ export default function ProjectsPage() {
       location: "Dar es Salaam",
       description: "Residential housing project featuring modern amenities and sustainable design.",
       type: "Residential",
+      image:
+        "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/MBAGALA%20KIJICHI%20PROJECT-EgFvuEp80LK6w6whz0pXkUV4JvP9y9.png",
     },
     {
       name: "NIT Project",
       location: "Dar es Salaam",
       description: "Commercial project for National Institute of Transport with state-of-the-art facilities.",
       type: "Commercial",
+      image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/NIT%20PROJECT-fCQYlcsboBDERHr40AK8XNWsOqM33g.jpg",
     },
     {
       name: "Snake Park Project",
       location: "Dar es Salaam",
       description: "Tourist facility development with visitor centers and recreational areas.",
       type: "Tourism",
+      image:
+        "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/SNAKE%20PARK%20PROJECT-6Rn801kHA6dJ2xVKauWdglUO5XKaaE.png",
     },
     {
       name: "O Gas Project",
       location: "Tanzania",
       description: "Fuel and energy infrastructure development for improved energy distribution.",
       type: "Industrial",
+      image:
+        "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/O%20GAS%20PROJECT-XA7YW6MODLJM96kF2lQ41sQpzV5o72.png",
     },
     {
       name: "Al-Hushoom ICD/CFS Project",
       location: "Dar es Salaam",
       description: "Logistics hub development for enhanced cargo and freight services.",
       type: "Logistics",
+      image:
+        "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/AL-HUSHOOM%20ICD%3ACFS%20PROJECT-gkC09UQAESEYuZ1QvUQbNsV3Gh3bHd.png",
     },
     {
       name: "Mahamood Mohamed Daule Transport",
       location: "Tanzania",
       description: "Industrial warehouse facility for transportation and logistics operations.",
       type: "Industrial",
+      image:
+        "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/MAHAMOOD%20MOHAMED%20DAULE%20TRANSPORT-YlO2yFo6avv6gfq1Y4UVADH1zHogl3.jpg",
     },
     {
       name: "Monalisa Go-Down Project",
       location: "Tanzania",
       description: "Storage and distribution facility with modern warehousing solutions.",
       type: "Warehouse",
+      image:
+        "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/MONALISA%20%28GO%20-DOWN%29%20PROJECT-w0oefIlnpZ0T2ECaddvlHOdoRKjvax.png",
     },
     {
       name: "Watercom TAZARA Project",
       location: "Tanzania",
       description: "Industrial site development for railway infrastructure support.",
       type: "Industrial",
+      image:
+        "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Watercom%20TAZARA%20Project-sQfWqz9QDbOxY5ZSjlidCKV6cwTURh.webp",
     },
     {
       name: "Morocco & Mbagala Projects",
       location: "Dar es Salaam",
       description: "Urban development and housing projects for growing communities.",
       type: "Residential",
+      image:
+        "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Morocco%20%26%20Mbagala%20Projects-We1wC9N9fhhdR2LB4yY9dq7rZ333C1.png",
     },
     {
       name: "Issa Mbuzi Project",
       location: "Tanzania",
       description: "Residential project featuring quality housing solutions.",
       type: "Residential",
+      image:
+        "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/ISSA%20MBUZI%20PROJECT-LtQC8Vg0TK8p1zGnMXDmWzbUsCOzzD.png",
+    },
+    {
+      name: "Boko Secondary Project",
+      location: "Tanzania",
+      description: "Educational facility development for secondary education.",
+      type: "Educational",
+      image:
+        "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Boko%20Secondary%20Project-KiJQYPgWaWExx1NYEC3Kz0PVB8Fi7h.jpg",
     },
   ]
 
@@ -76,18 +104,32 @@ export default function ProjectsPage() {
       location: "Julius Nyerere International Airport",
       description: "Infrastructure work at Tanzania's main international airport.",
       type: "Infrastructure",
-    },
-    {
-      name: "Boko Sekondari Project",
-      location: "Tanzania",
-      description: "Educational facility development for secondary education.",
-      type: "Educational",
+      image:
+        "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/JNIA%20Project-lUhNRhHUy9gubzkM7R0Ro5tOZd9F5Y.png",
     },
     {
       name: "Tuangoma Projects",
       location: "Tanzania",
       description: "Residential & community development for sustainable living.",
       type: "Community",
+      image:
+        "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/TUANGOMA%20PROJECTS-ETAqFVv9DrA6szzh8nY9WJsB6TyF5S.png",
+    },
+    {
+      name: "Godwin Gondwe Secondary School Project",
+      location: "Tanzania",
+      description: "Multi-story educational facility under construction for secondary education.",
+      type: "Educational",
+      image:
+        "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/GODWIN%20GONDWE%20SECONDARY%20SCHOOL%20PROJECT-kDxK7FWCmXEyDaFOJJ3TPJRlk0X7UH.jpg",
+    },
+    {
+      name: "Bonyokwa High School Project",
+      location: "Tanzania",
+      description: "Modern high school building construction with comprehensive facilities.",
+      type: "Educational",
+      image:
+        "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/BONYOKWA%20HIGH%20SCHOOL%20PROJECT-17gYToWzed0eAHQ92dzKioDG88WJoF.jpg",
     },
   ]
 
@@ -141,11 +183,22 @@ export default function ProjectsPage() {
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {completedProjects.map((project, index) => (
                   <Card key={index} className="overflow-hidden hover:shadow-lg transition-shadow">
-                    <div className="aspect-[4/3] bg-muted flex items-center justify-center">
-                      <div className="text-center text-muted-foreground">
-                        <div className="text-4xl mb-2">🏗️</div>
-                        <div className="text-sm">Project Image</div>
-                      </div>
+                    <div className="aspect-[4/3] bg-muted relative overflow-hidden">
+                      {project.image ? (
+                        <Image
+                          src={project.image || "/placeholder.svg"}
+                          alt={project.name}
+                          fill
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center h-full">
+                          <div className="text-center text-muted-foreground">
+                            <div className="text-4xl mb-2">🏗️</div>
+                            <div className="text-sm">Project Image</div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between gap-2 mb-2">
@@ -174,11 +227,22 @@ export default function ProjectsPage() {
                     key={index}
                     className="overflow-hidden hover:shadow-lg transition-shadow border-l-4 border-l-primary"
                   >
-                    <div className="aspect-[4/3] bg-muted flex items-center justify-center">
-                      <div className="text-center text-muted-foreground">
-                        <div className="text-4xl mb-2">🚧</div>
-                        <div className="text-sm">Project Image</div>
-                      </div>
+                    <div className="aspect-[4/3] bg-muted relative overflow-hidden">
+                      {project.image ? (
+                        <Image
+                          src={project.image || "/placeholder.svg"}
+                          alt={project.name}
+                          fill
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center h-full">
+                          <div className="text-center text-muted-foreground">
+                            <div className="text-4xl mb-2">🚧</div>
+                            <div className="text-sm">Project Image</div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between gap-2 mb-2">

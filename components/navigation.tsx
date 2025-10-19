@@ -45,12 +45,14 @@ export function Navigation() {
               </Link>
             ))}
             <Button asChild className="bg-secondary hover:bg-secondary/90 text-secondary-foreground">
-              <Link href="/contact">Get Quote</Link>
+              <Link href="/login">Sign In</Link>
             </Button>
           </div>
 
-          {/* Mobile menu button */}
-          <div className="md:hidden">
+          <div className="md:hidden flex items-center gap-2">
+            <Button asChild size="sm" className="bg-secondary hover:bg-secondary/90 text-secondary-foreground">
+              <Link href="/login">Sign In</Link>
+            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -62,7 +64,7 @@ export function Navigation() {
           </div>
         </div>
 
-        {/* Mobile Navigation */}
+        {/* Mobile Navigation Menu */}
         {isOpen && (
           <div className="md:hidden">
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-slate-800 rounded-lg mt-2 mb-4 shadow-lg">
@@ -76,11 +78,6 @@ export function Navigation() {
                   {item.label}
                 </Link>
               ))}
-              <div className="px-3 py-2">
-                <Button asChild className="w-full bg-secondary hover:bg-secondary/90 text-secondary-foreground">
-                  <Link href="/contact">Get Quote</Link>
-                </Button>
-              </div>
             </div>
           </div>
         )}
