@@ -1,6 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import type React from "react"
+
+import { useState, useCallback, memo } from "react"
 import { Navigation } from "@/components/navigation"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
@@ -25,6 +27,187 @@ interface CartItem extends Equipment {
   endDate: string
   totalDays: number
 }
+
+interface CartContentProps {
+  cart: CartItem[]
+  guestName: string
+  guestPhone: string
+  guestEmail: string
+  guestCompany: string
+  notes: string
+  isSubmitting: boolean
+  setGuestName: (value: string) => void
+  setGuestPhone: (value: string) => void
+  setGuestEmail: (value: string) => void
+  setGuestCompany: (value: string) => void
+  setNotes: (value: string) => void
+  updateQuantity: (id: string, startDate: string, endDate: string, quantity: number) => void
+  removeFromCart: (id: string, startDate: string, endDate: string) => void
+  handleProceedBooking: () => void
+  formatCurrency: (amount: number) => string
+  getTotalCost: () => number
+}
+
+const CartContent = memo(
+  ({
+    cart,
+    guestName,
+    guestPhone,
+    guestEmail,
+    guestCompany,
+    notes,
+    isSubmitting,
+    setGuestName,
+    setGuestPhone,
+    setGuestEmail,
+    setGuestCompany,
+    setNotes,
+    updateQuantity,
+    removeFromCart,
+    handleProceedBooking,
+    formatCurrency,
+    getTotalCost,
+  }: CartContentProps) => (
+    <>
+      {cart.length === 0 ? (
+        <p className="text-muted-foreground text-center py-8">Your cart is empty.</p>
+      ) : (
+        <div className="space-y-4">
+          <div className="max-h-[40vh] overflow-y-auto pr-2 space-y-4">
+            {cart.map((item, index) => (
+              <div key={`${item.id}-${item.startDate}-${item.endDate}-${index}`} className="border rounded-lg p-4">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h4 className="font-medium text-sm leading-tight">{item.name}</h4>
+                    <p className="text-sm text-muted-foreground">TSH {item.rate}/day</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {new Date(item.startDate).toLocaleDateString()} - {new Date(item.endDate).toLocaleDateString()}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.totalDays} day{item.totalDays > 1 ? "s" : ""}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeFromCart(item.id, item.startDate, item.endDate)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => updateQuantity(item.id, item.startDate, item.endDate, item.quantity - 1)}
+                    >
+                      <Minus className="h-3 w-3" />
+                    </Button>
+                    <span className="w-12 text-center">{item.quantity}</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => updateQuantity(item.id, item.startDate, item.endDate, item.quantity + 1)}
+                    >
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <span className="font-medium">
+                    {formatCurrency(Number.parseFloat(item.rate.replace(/,/g, "")) * item.totalDays * item.quantity)}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="border-t pt-4 space-y-4">
+            <div>
+              <h3 className="font-semibold mb-3">Your Contact Information</h3>
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="guest-name" className="text-foreground">
+                    Full Name
+                  </Label>
+                  <Input
+                    id="guest-name"
+                    placeholder="John Doe"
+                    value={guestName}
+                    onChange={(e) => setGuestName(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="guest-phone" className="text-foreground">
+                    Phone Number
+                  </Label>
+                  <Input
+                    id="guest-phone"
+                    type="tel"
+                    placeholder="+255 XXX XXX XXX"
+                    value={guestPhone}
+                    onChange={(e) => setGuestPhone(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="guest-email" className="text-foreground">
+                    Email
+                  </Label>
+                  <Input
+                    id="guest-email"
+                    type="email"
+                    placeholder="john@example.com"
+                    value={guestEmail}
+                    onChange={(e) => setGuestEmail(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="guest-company" className="text-foreground">
+                    Company Name
+                  </Label>
+                  <Input
+                    id="guest-company"
+                    placeholder="ABC Construction Ltd"
+                    value={guestCompany}
+                    onChange={(e) => setGuestCompany(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="notes" className="text-foreground">
+                    Additional Notes
+                  </Label>
+                  <Textarea
+                    id="notes"
+                    placeholder="Any special requirements or notes..."
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    className="min-h-20 resize-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center text-lg font-bold border-t pt-4">
+              <span>Total:</span>
+              <span className="text-primary">{formatCurrency(getTotalCost())}</span>
+            </div>
+          </div>
+
+          <Button onClick={handleProceedBooking} className="w-full" size="lg" disabled={isSubmitting}>
+            {isSubmitting ? "Submitting..." : "Submit Request"}
+          </Button>
+
+          <p className="text-xs text-center text-muted-foreground">
+            Our team will contact you shortly to confirm your booking
+          </p>
+        </div>
+      )}
+    </>
+  ),
+)
+
+CartContent.displayName = "CartContent"
 
 export default function RentPage() {
   const [cart, setCart] = useState<CartItem[]>([])
@@ -140,9 +323,11 @@ export default function RentPage() {
     }
   }
 
-  const updateQuantity = (id: string, startDate: string, endDate: string, quantity: number) => {
+  const updateQuantity = useCallback((id: string, startDate: string, endDate: string, quantity: number) => {
     if (quantity <= 0) {
-      removeFromCart(id, startDate, endDate)
+      setCart((prev) =>
+        prev.filter((item) => !(item.id === id && item.startDate === startDate && item.endDate === endDate)),
+      )
       return
     }
     setCart((prev) =>
@@ -150,24 +335,24 @@ export default function RentPage() {
         item.id === id && item.startDate === startDate && item.endDate === endDate ? { ...item, quantity } : item,
       ),
     )
-  }
+  }, [])
 
-  const removeFromCart = (id: string, startDate: string, endDate: string) => {
+  const removeFromCart = useCallback((id: string, startDate: string, endDate: string) => {
     setCart((prev) =>
       prev.filter((item) => !(item.id === id && item.startDate === startDate && item.endDate === endDate)),
     )
-  }
+  }, [])
 
-  const getTotalCost = () => {
+  const getTotalCost = useCallback(() => {
     return cart.reduce((total, item) => {
       const dailyRate = Number.parseFloat(item.rate.replace(/,/g, ""))
       return total + dailyRate * item.totalDays * item.quantity
     }, 0)
-  }
+  }, [cart])
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = useCallback((amount: number) => {
     return `TSH ${amount.toLocaleString()}.00`
-  }
+  }, [])
 
   const getTotalItems = () => {
     return cart.reduce((total, item) => total + item.quantity, 0)
@@ -238,10 +423,9 @@ export default function RentPage() {
 
       const whatsappMessage = `*EQUIPMENT RENTAL REQUEST*%0A%0A*Customer Details:*%0AName: ${encodeURIComponent(guestName)}%0APhone: ${encodeURIComponent(guestPhone)}${guestEmail ? `%0AEmail: ${encodeURIComponent(guestEmail)}` : ""}${guestCompany ? `%0ACompany: ${encodeURIComponent(guestCompany)}` : ""}%0A%0A*Equipment Requested:*%0A${cart.map((item) => `%0A${encodeURIComponent(item.name)}%0A- Dates: ${new Date(item.startDate).toLocaleDateString()} to ${new Date(item.endDate).toLocaleDateString()}%0A- Duration: ${item.totalDays} days%0A- Quantity: ${item.quantity}%0A- Rate: TSH ${item.rate}/day%0A- Subtotal: TSH ${(Number.parseFloat(item.rate.replace(/,/g, "")) * item.totalDays * item.quantity).toLocaleString()}`).join("")}%0A%0A*Total Cost: TSH ${getTotalCost().toLocaleString()}*${notes ? `%0A%0A*Notes:*%0A${encodeURIComponent(notes)}` : ""}`
 
-      const whatsappNumber = "255749777700" // Company WhatsApp number
+      const whatsappNumber = "255749777700"
       window.open(`https://wa.me/${whatsappNumber}?text=${whatsappMessage}`, "_blank")
 
-      // Clear form and cart
       setCart([])
       setGuestName("")
       setGuestPhone("")
@@ -265,144 +449,11 @@ export default function RentPage() {
     }
   }
 
-  const CartContent = () => (
-    <>
-      {cart.length === 0 ? (
-        <p className="text-muted-foreground text-center py-8">Your cart is empty.</p>
-      ) : (
-        <div className="space-y-4">
-          <div className="max-h-[40vh] overflow-y-auto pr-2 space-y-4">
-            {cart.map((item, index) => (
-              <div key={`${item.id}-${item.startDate}-${item.endDate}-${index}`} className="border rounded-lg p-4">
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <h4 className="font-medium text-sm leading-tight">{item.name}</h4>
-                    <p className="text-sm text-muted-foreground">TSH {item.rate}/day</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {new Date(item.startDate).toLocaleDateString()} - {new Date(item.endDate).toLocaleDateString()}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {item.totalDays} day{item.totalDays > 1 ? "s" : ""}
-                    </p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeFromCart(item.id, item.startDate, item.endDate)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => updateQuantity(item.id, item.startDate, item.endDate, item.quantity - 1)}
-                    >
-                      <Minus className="h-3 w-3" />
-                    </Button>
-                    <span className="w-12 text-center">{item.quantity}</span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => updateQuantity(item.id, item.startDate, item.endDate, item.quantity + 1)}
-                    >
-                      <Plus className="h-3 w-3" />
-                    </Button>
-                  </div>
-                  <span className="font-medium">
-                    {formatCurrency(Number.parseFloat(item.rate.replace(/,/g, "")) * item.totalDays * item.quantity)}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+  const handleNotesChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setNotes(e.target.value)
+  }, [])
 
-          <div className="border-t pt-4 space-y-4">
-            <div>
-              <h3 className="font-semibold mb-3">Your Contact Information</h3>
-              <div className="space-y-3">
-                <div>
-                  <Label htmlFor="guest-name" className="text-foreground">
-                    Full Name
-                  </Label>
-                  <Input
-                    id="guest-name"
-                    placeholder="John Doe"
-                    value={guestName}
-                    onChange={(e) => setGuestName(e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="guest-phone" className="text-foreground">
-                    Phone Number
-                  </Label>
-                  <Input
-                    id="guest-phone"
-                    type="tel"
-                    placeholder="+255 XXX XXX XXX"
-                    value={guestPhone}
-                    onChange={(e) => setGuestPhone(e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="guest-email" className="text-foreground">
-                    Email
-                  </Label>
-                  <Input
-                    id="guest-email"
-                    type="email"
-                    placeholder="john@example.com"
-                    value={guestEmail}
-                    onChange={(e) => setGuestEmail(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="guest-company" className="text-foreground">
-                    Company Name
-                  </Label>
-                  <Input
-                    id="guest-company"
-                    placeholder="ABC Construction Ltd"
-                    value={guestCompany}
-                    onChange={(e) => setGuestCompany(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="notes" className="text-foreground">
-                    Additional Notes
-                  </Label>
-                  <Textarea
-                    id="notes"
-                    placeholder="Any special requirements or notes..."
-                    defaultValue={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    className="min-h-20 resize-none"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-between items-center text-lg font-bold border-t pt-4">
-              <span>Total:</span>
-              <span className="text-primary">{formatCurrency(getTotalCost())}</span>
-            </div>
-          </div>
-
-          <Button onClick={handleProceedBooking} className="w-full" size="lg" disabled={isSubmitting}>
-            {isSubmitting ? "Submitting..." : "Submit Request"}
-          </Button>
-
-          <p className="text-xs text-center text-muted-foreground">
-            Our team will contact you shortly to confirm your booking
-          </p>
-        </div>
-      )}
-    </>
-  )
+  // Removed the original CartContent function and replaced with the memoized component above
 
   return (
     <div className="min-h-screen bg-background">
@@ -431,11 +482,11 @@ export default function RentPage() {
                 const equipmentImages = [
                   "/images/equipment/caterpillar-motor-grader.jpg",
                   "/images/equipment/caterpillar-excavator.webp",
-                  "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Komatsu%20Bullzoer-qWgmuZJya4D4HkcRreeevIC2C42Kq3.jpg", // Komatsu Bulldozer
+                  "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Komatsu%20Bullzoer-qWgmuZJya4D4HkcRreeevIC2C42Kq3.jpg",
                   "/images/equipment/jcb-backhoe.webp",
                   "/images/equipment/jcb-hydraulic-excavator.jpg",
                   "/images/equipment/hyundai-excavator.avif",
-                  "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/concete%20mixer-74KMzPfp0t1kEOT6nicsEv1CJNRT1Z.jpg", // Sany Concrete Mixer
+                  "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/concete%20mixer-74KMzPfp0t1kEOT6nicsEv1CJNRT1Z.jpg",
                   "/images/equipment/qingnong-concrete-mixer.webp",
                   "/images/equipment/schwing-concrete-pump.jpg",
                   "/images/equipment/sino-truck.jpg",
@@ -445,7 +496,7 @@ export default function RentPage() {
                   "/images/equipment/mitsubishi-canter-custom.png",
                   "/images/equipment/toyota-townace.png",
                   "/images/equipment/mitsubishi-fuso.png",
-                  "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/CIMC%20Lowbed%20Trailer%20with%20Tractor%20%28For%20Haulage%20Services%29%20-PcDywhnjSR5XXlgYtvCM4x3hYBikeL.png", // CIMC Lowbed Trailer with Tractor
+                  "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/CIMC%20Lowbed%20Trailer%20with%20Tractor%20%28For%20Haulage%20Services%29%20-PcDywhnjSR5XXlgYtvCM4x3hYBikeL.png",
                 ]
 
                 return (
@@ -499,7 +550,25 @@ export default function RentPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="max-h-[calc(100vh-12rem)] overflow-y-auto">
-                <CartContent />
+                <CartContent
+                  cart={cart}
+                  guestName={guestName}
+                  guestPhone={guestPhone}
+                  guestEmail={guestEmail}
+                  guestCompany={guestCompany}
+                  notes={notes}
+                  isSubmitting={isSubmitting}
+                  setGuestName={setGuestName}
+                  setGuestPhone={setGuestPhone}
+                  setGuestEmail={setGuestEmail}
+                  setGuestCompany={setGuestCompany}
+                  setNotes={setNotes}
+                  updateQuantity={updateQuantity}
+                  removeFromCart={removeFromCart}
+                  handleProceedBooking={handleProceedBooking}
+                  formatCurrency={formatCurrency}
+                  getTotalCost={getTotalCost}
+                />
               </CardContent>
             </Card>
           </div>
@@ -527,7 +596,25 @@ export default function RentPage() {
               Rental Request ({getTotalItems()})
             </DialogTitle>
           </DialogHeader>
-          <CartContent />
+          <CartContent
+            cart={cart}
+            guestName={guestName}
+            guestPhone={guestPhone}
+            guestEmail={guestEmail}
+            guestCompany={guestCompany}
+            notes={notes}
+            isSubmitting={isSubmitting}
+            setGuestName={setGuestName}
+            setGuestPhone={setGuestPhone}
+            setGuestEmail={setGuestEmail}
+            setGuestCompany={setGuestCompany}
+            setNotes={setNotes}
+            updateQuantity={updateQuantity}
+            removeFromCart={removeFromCart}
+            handleProceedBooking={handleProceedBooking}
+            formatCurrency={formatCurrency}
+            getTotalCost={getTotalCost}
+          />
         </DialogContent>
       </Dialog>
 

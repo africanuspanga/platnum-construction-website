@@ -10,11 +10,12 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Plus, Search, Eye, Edit, Trash2 } from "lucide-react"
+import { ArrowLeft, Plus, Search, Eye, FileText } from "lucide-react"
 import Link from "next/link"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export default function AdminInvoicesPage() {
   const router = useRouter()
@@ -23,6 +24,8 @@ export default function AdminInvoicesPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [projects, setProjects] = useState<any[]>([])
+  const [clients, setClients] = useState<any[]>([])
+  const [isUploading, setIsUploading] = useState(false)
   const [invoiceForm, setInvoiceForm] = useState({
     client_id: "",
     project_id: "",
@@ -30,6 +33,8 @@ export default function AdminInvoicesPage() {
     due_date: "",
     description: "",
     status: "pending",
+    invoice_type: "manual", // "manual" or "project"
+    pdf_file: null as File | null,
   })
 
   useEffect(() => {
@@ -39,8 +44,21 @@ export default function AdminInvoicesPage() {
     if (user && userRole === "admin") {
       fetchInvoices()
       fetchProjects()
+      fetchClients()
     }
   }, [user, userRole, loading, router])
+
+  const fetchClients = async () => {
+    try {
+      const response = await fetch("/api/users?role=client")
+      if (response.ok) {
+        const result = await response.json()
+        setClients(result.data || [])
+      }
+    } catch (error) {
+      console.error("Error fetching clients:", error)
+    }
+  }
 
   const fetchProjects = async () => {
     try {
@@ -54,21 +72,79 @@ export default function AdminInvoicesPage() {
     }
   }
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file && file.type === "application/pdf") {
+      setInvoiceForm((prev) => ({ ...prev, pdf_file: file }))
+    } else {
+      alert("Please select a PDF file")
+    }
+  }
+
   const handleCreateInvoice = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    if (!invoiceForm.client_id) {
+      alert("Please select a client")
+      return
+    }
+
+    if (!invoiceForm.amount || Number.parseFloat(invoiceForm.amount) <= 0) {
+      alert("Please enter a valid amount")
+      return
+    }
+
+    if (!invoiceForm.due_date) {
+      alert("Please select a due date")
+      return
+    }
+
+    setIsUploading(true)
+
     try {
+      let pdfUrl = null
+
+      // Upload PDF to Cloudinary if provided
+      if (invoiceForm.pdf_file) {
+        const formData = new FormData()
+        formData.append("file", invoiceForm.pdf_file)
+        formData.append("upload_preset", process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "")
+
+        const cloudinaryResponse = await fetch(
+          `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/upload`,
+          {
+            method: "POST",
+            body: formData,
+          },
+        )
+
+        if (!cloudinaryResponse.ok) {
+          throw new Error("Failed to upload PDF")
+        }
+
+        const cloudinaryData = await cloudinaryResponse.json()
+        pdfUrl = cloudinaryData.secure_url
+      }
+
       const response = await fetch("/api/invoices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...invoiceForm,
+          client_id: invoiceForm.client_id,
+          project_id: invoiceForm.project_id || null,
           amount: Number.parseFloat(invoiceForm.amount),
-          invoice_number: `INV-${Date.now()}`,
+          due_date: invoiceForm.due_date,
+          notes: invoiceForm.description,
+          status: invoiceForm.status,
+          pdf_url: pdfUrl,
+          invoice_type: invoiceForm.invoice_type,
         }),
       })
 
-      if (!response.ok) throw new Error("Failed to create invoice")
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to create invoice")
+      }
 
       setIsCreateDialogOpen(false)
       setInvoiceForm({
@@ -78,12 +154,16 @@ export default function AdminInvoicesPage() {
         due_date: "",
         description: "",
         status: "pending",
+        invoice_type: "manual",
+        pdf_file: null,
       })
       fetchInvoices()
       alert("Invoice created successfully!")
     } catch (error: any) {
       console.error("Error creating invoice:", error)
       alert("Failed to create invoice: " + error.message)
+    } finally {
+      setIsUploading(false)
     }
   }
 
@@ -112,6 +192,12 @@ export default function AdminInvoicesPage() {
         return "bg-slate-600"
     }
   }
+
+  const filteredInvoices = invoices.filter(
+    (invoice) =>
+      invoice.invoice_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      invoice.client?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()),
+  )
 
   return (
     <div className="min-h-screen bg-slate-900">
@@ -149,7 +235,7 @@ export default function AdminInvoicesPage() {
           </div>
         </div>
 
-        {invoices.length === 0 ? (
+        {filteredInvoices.length === 0 ? (
           <Card className="bg-slate-800 border-slate-700">
             <CardContent className="py-12 text-center">
               <h3 className="text-xl font-semibold text-white mb-2">No Invoices Found</h3>
@@ -162,15 +248,19 @@ export default function AdminInvoicesPage() {
           </Card>
         ) : (
           <div className="space-y-4">
-            {invoices.map((invoice) => (
+            {filteredInvoices.map((invoice) => (
               <Card key={invoice.id} className="bg-slate-800 border-slate-700">
                 <CardContent className="py-4">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-4">
                         <div>
-                          <h3 className="text-white font-semibold">Invoice #{invoice.invoice_number}</h3>
-                          <p className="text-sm text-slate-400">{invoice.client_name}</p>
+                          <h3 className="text-white font-semibold flex items-center gap-2">
+                            Invoice #{invoice.invoice_number}
+                            {invoice.pdf_url && <FileText className="w-4 h-4 text-[#C5A572]" />}
+                          </h3>
+                          <p className="text-sm text-slate-400">{invoice.client?.full_name || "Unknown Client"}</p>
+                          {invoice.project && <p className="text-xs text-slate-500">Project: {invoice.project.name}</p>}
                         </div>
                         <Badge className={getStatusColor(invoice.status)}>{invoice.status}</Badge>
                       </div>
@@ -178,21 +268,25 @@ export default function AdminInvoicesPage() {
                     <div className="flex items-center gap-6">
                       <div className="text-right">
                         <p className="text-sm text-slate-400">Amount</p>
-                        <p className="text-white font-semibold">${invoice.amount}</p>
+                        <p className="text-white font-semibold">TSH {invoice.amount?.toLocaleString()}</p>
                       </div>
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline" className="border-slate-600 text-white bg-transparent">
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        <Button size="sm" variant="outline" className="border-slate-600 text-white bg-transparent">
-                          <Edit className="w-4 h-4" />
-                        </Button>
+                        {invoice.pdf_url && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-slate-600 text-white bg-transparent hover:bg-slate-700"
+                            onClick={() => window.open(invoice.pdf_url, "_blank")}
+                          >
+                            <FileText className="w-4 h-4" />
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="outline"
-                          className="border-red-600 text-red-600 hover:bg-red-600 hover:text-white bg-transparent"
+                          className="border-slate-600 text-white bg-transparent hover:bg-slate-700"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Eye className="w-4 h-4" />
                         </Button>
                       </div>
                     </div>
@@ -204,70 +298,233 @@ export default function AdminInvoicesPage() {
         )}
 
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create New Invoice</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleCreateInvoice} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Link to Project (Optional)</Label>
-                <Select
-                  value={invoiceForm.project_id}
-                  onValueChange={(value) => setInvoiceForm({ ...invoiceForm, project_id: value })}
+
+            <Tabs defaultValue="manual" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger
+                  value="manual"
+                  onClick={() => setInvoiceForm((prev) => ({ ...prev, invoice_type: "manual" }))}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No project</SelectItem>
-                    {projects.map((project) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.name} - {project.client?.full_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                  Manual Invoice
+                </TabsTrigger>
+                <TabsTrigger
+                  value="project"
+                  onClick={() => setInvoiceForm((prev) => ({ ...prev, invoice_type: "project" }))}
+                >
+                  Project Invoice
+                </TabsTrigger>
+              </TabsList>
 
-              <div className="space-y-2">
-                <Label>Amount (TSH)</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={invoiceForm.amount}
-                  onChange={(e) => setInvoiceForm({ ...invoiceForm, amount: e.target.value })}
-                  required
-                />
-              </div>
+              <TabsContent value="manual">
+                <form onSubmit={handleCreateInvoice} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Client *</Label>
+                    <Select
+                      value={invoiceForm.client_id}
+                      onValueChange={(value) => setInvoiceForm((prev) => ({ ...prev, client_id: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select client" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {clients.map((client) => (
+                          <SelectItem key={client.id} value={client.id}>
+                            {client.full_name} {client.company_name ? `(${client.company_name})` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              <div className="space-y-2">
-                <Label>Due Date</Label>
-                <Input
-                  type="date"
-                  value={invoiceForm.due_date}
-                  onChange={(e) => setInvoiceForm({ ...invoiceForm, due_date: e.target.value })}
-                  required
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label>Upload PDF Invoice (Optional)</Label>
+                    <div className="flex items-center gap-2">
+                      <Input type="file" accept="application/pdf" onChange={handleFileChange} className="flex-1" />
+                      {invoiceForm.pdf_file && (
+                        <Badge variant="secondary" className="flex items-center gap-1">
+                          <FileText className="w-3 h-3" />
+                          {invoiceForm.pdf_file.name}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Upload a PDF invoice for the client to view and download
+                    </p>
+                  </div>
 
-              <div className="space-y-2">
-                <Label>Description</Label>
-                <Textarea
-                  value={invoiceForm.description}
-                  onChange={(e) => setInvoiceForm({ ...invoiceForm, description: e.target.value })}
-                  placeholder="Invoice details..."
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label>Amount (TSH) *</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={invoiceForm.amount}
+                      onChange={(e) => setInvoiceForm((prev) => ({ ...prev, amount: e.target.value }))}
+                      required
+                    />
+                  </div>
 
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)} className="flex-1">
-                  Cancel
-                </Button>
-                <Button type="submit" className="flex-1 bg-[#C5A572] hover:bg-[#B39562]">
-                  Create Invoice
-                </Button>
-              </div>
-            </form>
+                  <div className="space-y-2">
+                    <Label>Due Date *</Label>
+                    <Input
+                      type="date"
+                      value={invoiceForm.due_date}
+                      onChange={(e) => setInvoiceForm((prev) => ({ ...prev, due_date: e.target.value }))}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Payment Status</Label>
+                    <Select
+                      value={invoiceForm.status}
+                      onValueChange={(value) => setInvoiceForm((prev) => ({ ...prev, status: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="paid">Paid</SelectItem>
+                        <SelectItem value="overdue">Overdue</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Description</Label>
+                    <Textarea
+                      value={invoiceForm.description}
+                      onChange={(e) => setInvoiceForm((prev) => ({ ...prev, description: e.target.value }))}
+                      placeholder="Invoice details..."
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setIsCreateDialogOpen(false)}
+                      className="flex-1 bg-slate-700 text-white hover:bg-slate-600"
+                      disabled={isUploading}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit" className="flex-1 bg-[#C5A572] hover:bg-[#B39562]" disabled={isUploading}>
+                      {isUploading ? "Creating..." : "Create Invoice"}
+                    </Button>
+                  </div>
+                </form>
+              </TabsContent>
+
+              <TabsContent value="project">
+                <form onSubmit={handleCreateInvoice} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Link to Project *</Label>
+                    <Select
+                      value={invoiceForm.project_id}
+                      onValueChange={(value) => {
+                        const project = projects.find((p) => p.id === value)
+                        setInvoiceForm((prev) => ({
+                          ...prev,
+                          project_id: value,
+                          client_id: project?.client_id || "",
+                        }))
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select project" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {projects.map((project) => (
+                          <SelectItem key={project.id} value={project.id}>
+                            {project.name} - {project.client?.full_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Upload PDF Invoice (Optional)</Label>
+                    <div className="flex items-center gap-2">
+                      <Input type="file" accept="application/pdf" onChange={handleFileChange} className="flex-1" />
+                      {invoiceForm.pdf_file && (
+                        <Badge variant="secondary" className="flex items-center gap-1">
+                          <FileText className="w-3 h-3" />
+                          {invoiceForm.pdf_file.name}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Amount (TSH) *</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={invoiceForm.amount}
+                      onChange={(e) => setInvoiceForm((prev) => ({ ...prev, amount: e.target.value }))}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Due Date *</Label>
+                    <Input
+                      type="date"
+                      value={invoiceForm.due_date}
+                      onChange={(e) => setInvoiceForm((prev) => ({ ...prev, due_date: e.target.value }))}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Payment Status</Label>
+                    <Select
+                      value={invoiceForm.status}
+                      onValueChange={(value) => setInvoiceForm((prev) => ({ ...prev, status: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="paid">Paid</SelectItem>
+                        <SelectItem value="overdue">Overdue</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Description</Label>
+                    <Textarea
+                      value={invoiceForm.description}
+                      onChange={(e) => setInvoiceForm((prev) => ({ ...prev, description: e.target.value }))}
+                      placeholder="Invoice details..."
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setIsCreateDialogOpen(false)}
+                      className="flex-1 bg-slate-700 text-white hover:bg-slate-600"
+                      disabled={isUploading}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit" className="flex-1 bg-[#C5A572] hover:bg-[#B39562]" disabled={isUploading}>
+                      {isUploading ? "Creating..." : "Create Invoice"}
+                    </Button>
+                  </div>
+                </form>
+              </TabsContent>
+            </Tabs>
           </DialogContent>
         </Dialog>
       </main>

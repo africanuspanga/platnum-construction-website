@@ -55,8 +55,24 @@ export async function POST(request: NextRequest) {
     const supabase = createServerClient()
     const body = await request.json()
 
+    // Validate required fields
+    if (!body.client_id) {
+      return NextResponse.json({ data: null, error: "Client ID is required" }, { status: 400 })
+    }
+
+    if (!body.amount || Number.parseFloat(body.amount) <= 0) {
+      return NextResponse.json({ data: null, error: "Valid amount is required" }, { status: 400 })
+    }
+
+    if (!body.due_date) {
+      return NextResponse.json({ data: null, error: "Due date is required" }, { status: 400 })
+    }
+
     // Generate invoice number
     const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
+
+    const amount = Number.parseFloat(body.amount)
+    const tax = Number.parseFloat(body.tax || 0)
 
     const { data, error } = await supabase
       .from("invoices")
@@ -65,12 +81,14 @@ export async function POST(request: NextRequest) {
         client_id: body.client_id,
         project_id: body.project_id || null,
         rental_id: body.rental_id || null,
-        amount: Number.parseFloat(body.amount),
-        tax: Number.parseFloat(body.tax || 0),
-        total: Number.parseFloat(body.amount) + Number.parseFloat(body.tax || 0),
+        amount: amount,
+        tax: tax,
+        total: amount + tax,
         status: body.status || "pending",
         due_date: body.due_date,
-        notes: body.notes,
+        notes: body.notes || null,
+        pdf_url: body.pdf_url || null,
+        invoice_type: body.invoice_type || "manual",
       })
       .select(
         `
@@ -82,7 +100,10 @@ export async function POST(request: NextRequest) {
       )
       .single()
 
-    if (error) throw error
+    if (error) {
+      console.error("[v0] Supabase error:", error)
+      throw error
+    }
 
     return NextResponse.json({ data, error: null }, { status: 201 })
   } catch (error: any) {
