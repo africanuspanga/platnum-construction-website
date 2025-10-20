@@ -192,10 +192,10 @@ export default function HomePage() {
                   "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Boko%20secondary-FAEQNxBzVxwUSoL5vzmvNCFp1ZGuzn.jpg",
               },
               {
-                title: "Bonyokwa High School Project",
+                title: "Godwin Gondwe Secondary School Project",
                 type: "Educational",
                 location: "Tanzania",
-                description: "Modern high school building construction with comprehensive facilities.",
+                description: "Modern secondary school building construction with comprehensive facilities.",
                 image:
                   "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/gondwe%20school-T4ML8gwkD9s6vidZZVGmRkjOhzKFKB.jpg",
               },
