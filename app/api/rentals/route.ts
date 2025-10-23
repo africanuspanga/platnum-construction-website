@@ -1,21 +1,59 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerClient } from "@/lib/supabase/server"
+import { requireAuth } from "@/lib/api/auth"
+
+// GET /api/rentals - Get rentals (filtered by role)
+export async function GET(request: NextRequest) {
+  try {
+    const authResult = await requireAuth()
+
+    if (authResult instanceof NextResponse) {
+      return authResult
+    }
+
+    const { user, supabase } = authResult
+    const searchParams = request.nextUrl.searchParams
+    const status = searchParams.get("status")
+
+    let query = supabase
+      .from("rentals")
+      .select(`
+        *,
+        equipment:equipment_id (name, category, daily_rate),
+        user:user_id (full_name, email, company_name)
+      `)
+      .order("created_at", { ascending: false })
+
+    // Role-based filtering
+    if (user.role !== "admin") {
+      query = query.eq("user_id", user.id)
+    }
+
+    // Apply status filter if provided
+    if (status) {
+      query = query.eq("status", status)
+    }
+
+    const { data, error } = await query
+
+    if (error) throw error
+
+    return NextResponse.json({ data: data || [], error: null })
+  } catch (error: any) {
+    console.error("[v0] Error fetching rentals:", error)
+    return NextResponse.json({ data: null, error: error.message }, { status: 500 })
+  }
+}
 
 // POST /api/rentals - Create a new rental request
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerClient()
+    const authResult = await requireAuth(request)
 
-    // Get authenticated user
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession()
-
-    if (sessionError || !session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (authResult instanceof NextResponse) {
+      return authResult
     }
 
+    const { user, supabase } = authResult
     const body = await request.json()
     const { equipment_id, start_date, end_date, notes } = body
 
@@ -31,7 +69,7 @@ export async function POST(request: NextRequest) {
     const { data: rental, error: rentalError } = await supabase
       .from("rentals")
       .insert({
-        user_id: session.user.id,
+        user_id: user.id,
         equipment_id,
         start_date,
         end_date,
@@ -41,16 +79,10 @@ export async function POST(request: NextRequest) {
       .select()
       .single()
 
-    if (rentalError) {
-      console.error("[v0] Error creating rental:", rentalError)
-      return NextResponse.json({ error: rentalError.message }, { status: 500 })
-    }
+    if (rentalError) throw rentalError
 
     // Get equipment details for notification
     const { data: equipment } = await supabase.from("equipment").select("name").eq("id", equipment_id).single()
-
-    // Get user details
-    const { data: user } = await supabase.from("users").select("full_name, email").eq("id", session.user.id).single()
 
     // Get all admin users
     const { data: admins } = await supabase.from("users").select("id, email").eq("role", "admin")
@@ -61,7 +93,7 @@ export async function POST(request: NextRequest) {
         user_id: admin.id,
         type: "rental_request",
         title: "New Equipment Rental Request",
-        message: `${user?.full_name || user?.email || "A client"} has requested to rent ${equipment?.name || "equipment"} from ${start_date} to ${end_date}`,
+        message: `${user.full_name || user.email} has requested to rent ${equipment?.name || "equipment"} from ${start_date} to ${end_date}`,
         link: "/admin",
         read: false,
       }))
@@ -77,7 +109,7 @@ export async function POST(request: NextRequest) {
             type: "rental_request",
             to: admins.map((a) => a.email).filter(Boolean),
             data: {
-              clientName: user?.full_name || user?.email || "Client",
+              clientName: user.full_name || user.email,
               equipmentName: equipment?.name || "Equipment",
               startDate: start_date,
               endDate: end_date,
@@ -87,58 +119,12 @@ export async function POST(request: NextRequest) {
         })
       } catch (emailError) {
         console.error("[v0] Error sending email:", emailError)
-        // Don't fail the request if email fails
       }
     }
 
-    return NextResponse.json({ success: true, rental }, { status: 201 })
+    return NextResponse.json({ data: rental, error: null }, { status: 201 })
   } catch (error: any) {
-    console.error("[v0] Error in rental creation:", error)
-    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
-  }
-}
-
-// GET /api/rentals - Get rentals for current user or all rentals for admin
-export async function GET(request: NextRequest) {
-  try {
-    const supabase = createServerClient()
-
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession()
-
-    if (sessionError || !session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    // Get user role
-    const { data: userData } = await supabase.from("users").select("role").eq("id", session.user.id).single()
-
-    let query = supabase
-      .from("rentals")
-      .select(`
-        *,
-        equipment:equipment_id (name, category, daily_rate),
-        user:user_id (full_name, email)
-      `)
-      .order("created_at", { ascending: false })
-
-    // If not admin, only show user's own rentals
-    if (userData?.role !== "admin") {
-      query = query.eq("user_id", session.user.id)
-    }
-
-    const { data: rentals, error: rentalsError } = await query
-
-    if (rentalsError) {
-      console.error("[v0] Error fetching rentals:", rentalsError)
-      return NextResponse.json({ error: rentalsError.message }, { status: 500 })
-    }
-
-    return NextResponse.json({ rentals }, { status: 200 })
-  } catch (error: any) {
-    console.error("[v0] Error fetching rentals:", error)
-    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
+    console.error("[v0] Error creating rental:", error)
+    return NextResponse.json({ data: null, error: error.message }, { status: 500 })
   }
 }

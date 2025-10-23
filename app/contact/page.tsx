@@ -6,6 +6,8 @@ import { Card } from "@/components/ui/card"
 import { MapPin, Phone, Mail, Clock } from "lucide-react"
 import Image from "next/image"
 
+// For SEO, consider converting to server component or using next/head in a layout
+
 export default function ContactPage() {
   return (
     <div className="min-h-screen bg-background">

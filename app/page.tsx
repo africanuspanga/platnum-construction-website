@@ -6,6 +6,14 @@ import Link from "next/link"
 import Image from "next/image"
 import { Building2, Wrench, Truck, Star, ArrowRight, Users } from "lucide-react"
 
+export const metadata = {
+  title: "Platnum Construction | Leading Construction Company in Tanzania",
+  description:
+    "Premier construction company in Tanzania offering building construction, road construction, and equipment rental services. 15+ years of excellence since 2008.",
+  keywords:
+    "construction Tanzania, building construction, road construction, equipment rental, Platnum Construction, construction company Dar es Salaam",
+}
+
 export default function HomePage() {
   return (
     <div className="min-h-screen">

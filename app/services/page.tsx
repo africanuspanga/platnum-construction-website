@@ -6,6 +6,14 @@ import Link from "next/link"
 import Image from "next/image"
 import { Building, Wrench, Truck, Search } from "lucide-react"
 
+export const metadata = {
+  title: "Construction Services | Platnum Construction Tanzania",
+  description:
+    "Professional construction services including building construction, civil engineering, equipment rental, and transportation. Quality construction solutions in Tanzania.",
+  keywords:
+    "construction services Tanzania, building construction, civil engineering, equipment rental, construction company services",
+}
+
 export default function ServicesPage() {
   const services = [
     {

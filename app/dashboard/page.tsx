@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth/auth-context"
 import { Button } from "@/components/ui/button"
@@ -11,9 +11,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Package, FileText, User, LogOut, FolderPlus } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Package, FileText, User, LogOut, FolderPlus, X } from "lucide-react"
 import Link from "next/link"
 import Badge from "@/components/ui/badge"
+import { createBrowserClient } from "@/lib/supabase/client"
 
 export default function ClientDashboard() {
   const router = useRouter()
@@ -24,23 +26,47 @@ export default function ClientDashboard() {
     name: "",
     description: "",
     budget: "",
+    currency: "TSH",
     timeline: "",
   })
+  const [projectFiles, setProjectFiles] = useState<File[]>([])
+  const [isUploadingFiles, setIsUploadingFiles] = useState(false)
   const [projects, setProjects] = useState<any[]>([])
   const projectsFetched = useRef(false)
+  const supabase = createBrowserClient()
 
   useEffect(() => {
     if (!loading && !user) {
       router.push("/login")
     }
     if (!loading && userRole && userRole !== "client") {
-      // Redirect to appropriate dashboard
       const dashboardPath = userRole === "admin" ? "/admin" : "/manager"
       router.push(dashboardPath)
     }
     if (user && !projectsFetched.current) {
       projectsFetched.current = true
       fetchProjects()
+
+      const projectsChannel = supabase
+        .channel(`client-projects-${user.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "projects",
+            filter: `client_id=eq.${user.id}`,
+          },
+          () => {
+            console.log("[v0] Real-time update received for client projects")
+            fetchProjects()
+          },
+        )
+        .subscribe()
+
+      return () => {
+        supabase.removeChannel(projectsChannel)
+      }
     }
   }, [user, userRole, loading, router])
 
@@ -48,6 +74,17 @@ export default function ClientDashboard() {
     await signOut()
     router.push("/login")
   }
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const newFiles = Array.from(e.target.files)
+      setProjectFiles((prev) => [...prev, ...newFiles])
+    }
+  }, [])
+
+  const handleFileRemove = useCallback((index: number) => {
+    setProjectFiles((prev) => prev.filter((_, i) => i !== index))
+  }, [])
 
   const handleProjectSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -61,6 +98,7 @@ export default function ClientDashboard() {
           name: projectForm.name,
           description: projectForm.description,
           budget: Number.parseFloat(projectForm.budget),
+          currency: projectForm.currency,
           start_date: new Date().toISOString().split("T")[0],
           end_date: projectForm.timeline,
           status: "pending",
@@ -73,15 +111,60 @@ export default function ClientDashboard() {
         throw new Error(error.error || "Failed to create project request")
       }
 
+      const { data: project } = await response.json()
+
+      if (projectFiles.length > 0 && project?.id) {
+        setIsUploadingFiles(true)
+
+        for (const file of projectFiles) {
+          try {
+            const formData = new FormData()
+            formData.append("file", file)
+            formData.append("upload_preset", process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "")
+
+            const cloudinaryResponse = await fetch(
+              `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/auto/upload`,
+              {
+                method: "POST",
+                body: formData,
+              },
+            )
+
+            if (!cloudinaryResponse.ok) {
+              throw new Error("Failed to upload file to storage")
+            }
+
+            const cloudinaryData = await cloudinaryResponse.json()
+
+            await fetch(`/api/projects/${project.id}/files`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                file_name: file.name,
+                file_url: cloudinaryData.secure_url,
+                file_type: file.type,
+                file_size: file.size,
+              }),
+            })
+          } catch (fileError) {
+            console.error("[v0] Error uploading file:", fileError)
+          }
+        }
+
+        setIsUploadingFiles(false)
+      }
+
       alert("Project request submitted successfully! Admin will review and assign a project manager.")
       setIsProjectModalOpen(false)
-      setProjectForm({ name: "", description: "", budget: "", timeline: "" })
+      setProjectForm({ name: "", description: "", budget: "", currency: "TSH", timeline: "" })
+      setProjectFiles([])
       fetchProjects()
     } catch (error: any) {
       console.error("[v0] Error creating project:", error)
       alert(error.message || "Failed to submit project request. Please try again.")
     } finally {
       setIsSubmitting(false)
+      setIsUploadingFiles(false)
     }
   }
 
@@ -110,14 +193,12 @@ export default function ClientDashboard() {
 
       const result = await response.json()
 
-      // Handle the { data, error } response format from the API
       if (result.error) {
         console.error("[v0] Error fetching projects:", result.error)
         setProjects([])
         return
       }
 
-      // Ensure data is an array before filtering
       if (Array.isArray(result.data)) {
         setProjects(result.data.filter((p: any) => p.client_id === user?.id))
       } else {
@@ -140,7 +221,6 @@ export default function ClientDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-900">
-      {/* Header */}
       <header className="bg-slate-800 border-b border-slate-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex justify-between items-center gap-2">
           <h1 className="text-lg sm:text-2xl font-bold truncate" style={{ color: "#C5A572" }}>
@@ -158,7 +238,6 @@ export default function ClientDashboard() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
@@ -177,7 +256,6 @@ export default function ClientDashboard() {
           </Button>
         </div>
 
-        {/* Quick Actions */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <Card className="bg-slate-800 border-slate-700">
             <CardHeader>
@@ -219,7 +297,6 @@ export default function ClientDashboard() {
           </Card>
         </div>
 
-        {/* My Projects */}
         <Card className="bg-slate-800 border-slate-700">
           <CardHeader>
             <FolderPlus className="w-8 h-8 mb-2" style={{ color: "#C5A572" }} />
@@ -253,7 +330,6 @@ export default function ClientDashboard() {
           </CardContent>
         </Card>
 
-        {/* Recent Activity */}
         <Card className="bg-slate-800 border-slate-700 mt-6">
           <CardHeader>
             <CardTitle className="text-white">Recent Activity</CardTitle>
@@ -304,7 +380,7 @@ export default function ClientDashboard() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="project-budget" className="text-white">
-                  Estimated Budget (TSH)
+                  Estimated Budget
                 </Label>
                 <Input
                   id="project-budget"
@@ -318,18 +394,73 @@ export default function ClientDashboard() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="project-timeline" className="text-white">
-                  Expected Completion
+                <Label htmlFor="project-currency" className="text-white">
+                  Currency
                 </Label>
+                <Select
+                  value={projectForm.currency}
+                  onValueChange={(value) => setProjectForm({ ...projectForm, currency: value })}
+                >
+                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                    <SelectValue placeholder="Select currency" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-700 border-slate-600">
+                    <SelectItem value="TSH" className="text-white hover:bg-slate-600">
+                      TSH (Tanzanian Shilling)
+                    </SelectItem>
+                    <SelectItem value="USD" className="text-white hover:bg-slate-600">
+                      USD (US Dollar)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="project-timeline" className="text-white">
+                Expected Completion
+              </Label>
+              <Input
+                id="project-timeline"
+                type="date"
+                value={projectForm.timeline}
+                onChange={(e) => setProjectForm({ ...projectForm, timeline: e.target.value })}
+                min={new Date().toISOString().split("T")[0]}
+                required
+                className="bg-slate-700 border-slate-600 text-white"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="project-files" className="text-white">
+                Attachments (Optional)
+              </Label>
+              <div className="space-y-2">
                 <Input
-                  id="project-timeline"
-                  type="date"
-                  value={projectForm.timeline}
-                  onChange={(e) => setProjectForm({ ...projectForm, timeline: e.target.value })}
-                  min={new Date().toISOString().split("T")[0]}
-                  required
-                  className="bg-slate-700 border-slate-600 text-white"
+                  id="project-files"
+                  type="file"
+                  multiple
+                  onChange={handleFileSelect}
+                  className="bg-slate-700 border-slate-600 text-white file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-[#C5A572] file:text-white hover:file:bg-[#B39562]"
                 />
+                {projectFiles.length > 0 && (
+                  <div className="space-y-1">
+                    {projectFiles.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between bg-slate-700 p-2 rounded text-sm">
+                        <span className="truncate flex-1">{file.name}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleFileRemove(index)}
+                          className="h-6 w-6 p-0 text-red-400 hover:text-red-300 hover:bg-slate-600"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -339,11 +470,16 @@ export default function ClientDashboard() {
                 variant="outline"
                 onClick={() => setIsProjectModalOpen(false)}
                 className="flex-1 border-[#C5A572] text-[#C5A572] hover:bg-[#C5A572] hover:text-white"
+                disabled={isSubmitting || isUploadingFiles}
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting} className="flex-1 bg-[#C5A572] hover:bg-[#B39562]">
-                {isSubmitting ? "Submitting..." : "Submit Request"}
+              <Button
+                type="submit"
+                disabled={isSubmitting || isUploadingFiles}
+                className="flex-1 bg-[#C5A572] hover:bg-[#B39562]"
+              >
+                {isSubmitting ? "Submitting..." : isUploadingFiles ? "Uploading files..." : "Submit Request"}
               </Button>
             </div>
           </form>

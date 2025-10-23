@@ -47,6 +47,45 @@ export default function ClientInvoicesPage() {
     }
   }
 
+  const handleDownloadPDF = async (invoice: any) => {
+    if (invoice.pdf_url) {
+      let downloadUrl = invoice.pdf_url
+
+      // If it's a Cloudinary URL, add the fl_attachment transformation
+      if (downloadUrl.includes("cloudinary.com")) {
+        downloadUrl = downloadUrl.replace("/upload/", "/upload/fl_attachment/")
+      }
+
+      // Try to open the PDF
+      const newWindow = window.open(downloadUrl, "_blank")
+
+      // If the direct URL fails (401 error), try getting a signed URL
+      if (!newWindow) {
+        try {
+          const response = await fetch("/api/cloudinary/sign-url", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              publicId: invoice.pdf_url.split("/upload/")[1]?.replace(/^v\d+\//, ""),
+            }),
+          })
+
+          if (response.ok) {
+            const { signedUrl } = await response.json()
+            window.open(signedUrl, "_blank")
+          } else {
+            alert("Unable to download PDF. Please contact support.")
+          }
+        } catch (error) {
+          console.error("[v0] Error getting signed URL:", error)
+          alert("Unable to download PDF. Please contact support.")
+        }
+      }
+    } else {
+      alert("No PDF available for this invoice")
+    }
+  }
+
   if (loading || loadingInvoices) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
@@ -159,9 +198,13 @@ export default function ClientInvoicesPage() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button className="bg-[#C5A572] hover:bg-[#B39562]">
+                    <Button
+                      className="bg-[#C5A572] hover:bg-[#B39562]"
+                      onClick={() => handleDownloadPDF(invoice)}
+                      disabled={!invoice.pdf_url}
+                    >
                       <Download className="w-4 h-4 mr-2" />
-                      Download PDF
+                      {invoice.pdf_url ? "Download PDF" : "No PDF Available"}
                     </Button>
                     {invoice.status === "pending" && (
                       <Button

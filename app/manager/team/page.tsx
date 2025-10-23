@@ -133,27 +133,24 @@ export default function ManagerTeamPage() {
     e.preventDefault()
 
     try {
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: formData.email,
-        email_confirm: true,
-        user_metadata: {
-          full_name: formData.full_name,
-          role: formData.role,
+      const response = await fetch("/api/users/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-      })
-
-      if (authError) throw authError
-
-      const { error: profileError } = await supabase.from("users").insert([
-        {
-          id: authData.user.id,
+        credentials: "include",
+        body: JSON.stringify({
           email: formData.email,
           full_name: formData.full_name,
           role: formData.role,
-        },
-      ])
+        }),
+      })
 
-      if (profileError) throw profileError
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to add team member")
+      }
 
       setIsAddDialogOpen(false)
       setFormData({ full_name: "", email: "", role: "client" })
@@ -302,7 +299,7 @@ export default function ManagerTeamPage() {
           {filteredMembers.map((member) => {
             const memberProjects = getMemberProjects(member.id)
             return (
-              <Card key={member.id} className="bg-slate-800 border-slate-700">
+              <Card key={member.id} className="bg-white border-slate-200">
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
@@ -310,8 +307,8 @@ export default function ManagerTeamPage() {
                         <User className="w-6 h-6" style={{ color: "#C5A572" }} />
                       </div>
                       <div>
-                        <CardTitle className="text-white text-lg">{member.full_name}</CardTitle>
-                        <Badge variant="outline" className="mt-1">
+                        <CardTitle className="text-slate-900 text-lg">{member.full_name}</CardTitle>
+                        <Badge variant="outline" className="mt-1 bg-white border-slate-300 text-slate-700">
                           {member.role.replace("_", " ")}
                         </Badge>
                       </div>
@@ -319,25 +316,25 @@ export default function ManagerTeamPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <div className="flex items-center gap-2 text-sm text-slate-600">
                     <Mail className="w-4 h-4" />
                     <span className="truncate">{member.email}</span>
                   </div>
 
                   {memberProjects.length > 0 && (
                     <div>
-                      <p className="text-sm text-slate-400 mb-2 flex items-center gap-2">
+                      <p className="text-sm text-slate-600 mb-2 flex items-center gap-2">
                         <Briefcase className="w-4 h-4" />
                         Assigned Projects ({memberProjects.length})
                       </p>
                       <div className="space-y-1">
                         {memberProjects.slice(0, 2).map((project) => (
-                          <p key={project.id} className="text-sm text-white truncate">
+                          <p key={project.id} className="text-sm text-slate-900 truncate">
                             • {project.name}
                           </p>
                         ))}
                         {memberProjects.length > 2 && (
-                          <p className="text-sm text-slate-400">+{memberProjects.length - 2} more</p>
+                          <p className="text-sm text-slate-600">+{memberProjects.length - 2} more</p>
                         )}
                       </div>
                     </div>

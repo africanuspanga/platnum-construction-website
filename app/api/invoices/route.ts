@@ -51,45 +51,57 @@ export async function GET(request: NextRequest) {
 // POST /api/invoices - Create new invoice (Admin only)
 export async function POST(request: NextRequest) {
   try {
+    console.log("[v0] Invoice POST - Starting...")
     await requireRole(["admin"])
-    const supabase = createServerClient()
+    console.log("[v0] Invoice POST - Auth passed")
+
+    const supabase = await createServerClient()
     const body = await request.json()
+    console.log("[v0] Invoice POST - Request body:", body)
 
     // Validate required fields
     if (!body.client_id) {
+      console.error("[v0] Invoice POST - Missing client_id")
       return NextResponse.json({ data: null, error: "Client ID is required" }, { status: 400 })
     }
 
     if (!body.amount || Number.parseFloat(body.amount) <= 0) {
+      console.error("[v0] Invoice POST - Invalid amount:", body.amount)
       return NextResponse.json({ data: null, error: "Valid amount is required" }, { status: 400 })
     }
 
     if (!body.due_date) {
+      console.error("[v0] Invoice POST - Missing due_date")
       return NextResponse.json({ data: null, error: "Due date is required" }, { status: 400 })
     }
 
     // Generate invoice number
     const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
+    console.log("[v0] Invoice POST - Generated invoice number:", invoiceNumber)
 
     const amount = Number.parseFloat(body.amount)
     const tax = Number.parseFloat(body.tax || 0)
 
+    const invoiceData = {
+      invoice_number: invoiceNumber,
+      client_id: body.client_id,
+      project_id: body.project_id || null,
+      rental_id: body.rental_id || null,
+      amount: amount,
+      tax: tax,
+      total: amount + tax,
+      status: body.status || "pending",
+      issue_date: new Date().toISOString(),
+      due_date: body.due_date,
+      notes: body.notes || null,
+      pdf_url: body.pdf_url || null,
+      invoice_type: body.invoice_type || "manual",
+    }
+    console.log("[v0] Invoice POST - Inserting data:", invoiceData)
+
     const { data, error } = await supabase
       .from("invoices")
-      .insert({
-        invoice_number: invoiceNumber,
-        client_id: body.client_id,
-        project_id: body.project_id || null,
-        rental_id: body.rental_id || null,
-        amount: amount,
-        tax: tax,
-        total: amount + tax,
-        status: body.status || "pending",
-        due_date: body.due_date,
-        notes: body.notes || null,
-        pdf_url: body.pdf_url || null,
-        invoice_type: body.invoice_type || "manual",
-      })
+      .insert(invoiceData)
       .select(
         `
         *,
@@ -101,13 +113,14 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) {
-      console.error("[v0] Supabase error:", error)
+      console.error("[v0] Invoice POST - Supabase error:", error)
       throw error
     }
 
+    console.log("[v0] Invoice POST - Success:", data)
     return NextResponse.json({ data, error: null }, { status: 201 })
   } catch (error: any) {
-    console.error("[v0] Error creating invoice:", error)
+    console.error("[v0] Invoice POST - Error:", error)
     return NextResponse.json({ data: null, error: error.message }, { status: 500 })
   }
 }

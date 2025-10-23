@@ -6,6 +6,14 @@ import Link from "next/link"
 import Image from "next/image"
 import { CheckCircle, Users, Award, Shield, Lightbulb, Heart, FileCheck, Building } from "lucide-react"
 
+export const metadata = {
+  title: "About Us | Platnum Construction Tanzania",
+  description:
+    "Learn about Platnum Construction, a leading Tanzanian construction company since 2008. Committed to excellence, safety, and quality in building and civil construction.",
+  keywords:
+    "about Platnum Construction, construction company Tanzania, Tanzanian owned construction, building company history",
+}
+
 export default function AboutPage() {
   const coreValues = [
     {

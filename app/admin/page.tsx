@@ -1,103 +1,82 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth/auth-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { NotificationBell } from "@/components/notification-bell"
-import {
-  Users,
-  Package,
-  FileText,
-  FolderKanban,
-  Settings,
-  LogOut,
-  TrendingUp,
-  Clock,
-  CheckCircle,
-  XCircle,
-} from "lucide-react"
+import { Users, Package, FileText, FolderKanban, Settings, LogOut, TrendingUp, Clock } from "lucide-react"
 import Link from "next/link"
+import { createBrowserClient } from "@/lib/supabase/client"
 
 export default function AdminDashboard() {
   const router = useRouter()
   const { user, userRole, loading, signOut } = useAuth()
-  const [pendingRentals, setPendingRentals] = useState<any[]>([])
   const [pendingProjects, setPendingProjects] = useState<any[]>([])
   const [isLoadingRequests, setIsLoadingRequests] = useState(true)
+  const hasFetchedRef = useRef(false)
+  const supabase = createBrowserClient()
 
   useEffect(() => {
     if (!loading && !user) {
       router.push("/login")
+      return
     }
     if (!loading && userRole && userRole !== "admin") {
       router.push("/login")
+      return
     }
-    if (user && userRole === "admin") {
+    if (user && userRole === "admin" && !hasFetchedRef.current) {
+      hasFetchedRef.current = true
       fetchPendingRequests()
+
+      const projectsChannel = supabase
+        .channel("admin-projects")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "projects",
+          },
+          () => {
+            console.log("[v0] Real-time update received for projects")
+            fetchPendingRequests()
+          },
+        )
+        .subscribe()
+
+      return () => {
+        supabase.removeChannel(projectsChannel)
+      }
     }
   }, [user, userRole, loading, router])
 
   const fetchPendingRequests = async () => {
     try {
-      const [rentalsRes, projectsRes] = await Promise.all([
-        fetch("/api/rentals?status=pending"),
-        fetch("/api/projects?status=pending"),
-      ])
+      setIsLoadingRequests(true)
 
-      if (rentalsRes.ok) {
-        const rentalsData = await rentalsRes.json()
-        setPendingRentals(rentalsData.data || [])
+      const projectsRes = await fetch("/api/projects?status=pending", {
+        credentials: "include",
+      })
+
+      if (projectsRes.status === 401) {
+        router.push("/login")
+        return
       }
 
       if (projectsRes.ok) {
         const projectsData = await projectsRes.json()
         setPendingProjects(projectsData.data || [])
+      } else {
+        setPendingProjects([])
       }
     } catch (error) {
-      console.error("[v0] Error fetching pending requests:", error)
+      console.error("Error fetching pending requests:", error)
+      setPendingProjects([])
     } finally {
       setIsLoadingRequests(false)
-    }
-  }
-
-  const handleApproveRental = async (rentalId: string) => {
-    try {
-      const response = await fetch(`/api/rentals/${rentalId}/approve`, {
-        method: "POST",
-      })
-
-      if (response.ok) {
-        alert("Rental approved successfully!")
-        fetchPendingRequests()
-      } else {
-        alert("Failed to approve rental")
-      }
-    } catch (error) {
-      console.error("[v0] Error approving rental:", error)
-      alert("Failed to approve rental")
-    }
-  }
-
-  const handleRejectRental = async (rentalId: string) => {
-    const reason = prompt("Enter rejection reason (optional):")
-    try {
-      const response = await fetch(`/api/rentals/${rentalId}/reject`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason }),
-      })
-
-      if (response.ok) {
-        alert("Rental rejected")
-        fetchPendingRequests()
-      } else {
-        alert("Failed to reject rental")
-      }
-    } catch (error) {
-      console.error("[v0] Error rejecting rental:", error)
-      alert("Failed to reject rental")
     }
   }
 
@@ -115,7 +94,6 @@ export default function AdminDashboard() {
   }
 
   const stats = [
-    { label: "Pending Rentals", value: pendingRentals.length.toString(), icon: Clock, color: "#C5A572" },
     { label: "Pending Projects", value: pendingProjects.length.toString(), icon: Clock, color: "#C5A572" },
     { label: "Equipment Items", value: "18", icon: Package, color: "#1E3A5F" },
     { label: "Total Revenue", value: "$0", icon: TrendingUp, color: "#1E3A5F" },
@@ -154,7 +132,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid md:grid-cols-4 gap-6 mb-8">
+        <div className="grid md:grid-cols-3 gap-6 mb-8">
           {stats.map((stat, index) => {
             const Icon = stat.icon
             return (
@@ -174,85 +152,39 @@ export default function AdminDashboard() {
         </div>
 
         {/* Pending Requests Section */}
-        {(pendingRentals.length > 0 || pendingProjects.length > 0) && (
+        {pendingProjects.length > 0 && (
           <div className="mb-8 space-y-6">
             <h3 className="text-2xl font-bold text-white">Pending Requests</h3>
 
-            {/* Pending Rentals */}
-            {pendingRentals.length > 0 && (
-              <Card className="bg-slate-800 border-slate-700">
-                <CardHeader>
-                  <CardTitle className="text-white flex items-center gap-2">
-                    <Package className="w-5 h-5" style={{ color: "#C5A572" }} />
-                    Pending Equipment Rentals ({pendingRentals.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {pendingRentals.slice(0, 5).map((rental) => (
-                      <div key={rental.id} className="flex items-center justify-between p-4 bg-slate-700 rounded-lg">
-                        <div className="flex-1">
-                          <p className="font-medium text-white">{rental.equipment?.name || "Equipment"}</p>
-                          <p className="text-sm text-slate-400">
-                            Client: {rental.client?.full_name || rental.client?.email}
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            {new Date(rental.start_date).toLocaleDateString()} -{" "}
-                            {new Date(rental.end_date).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => handleApproveRental(rental.id)}
-                            className="bg-green-600 hover:bg-green-700"
-                          >
-                            <CheckCircle className="w-4 h-4 mr-1" />
-                            Approve
-                          </Button>
-                          <Button size="sm" variant="destructive" onClick={() => handleRejectRental(rental.id)}>
-                            <XCircle className="w-4 h-4 mr-1" />
-                            Reject
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
             {/* Pending Projects */}
-            {pendingProjects.length > 0 && (
-              <Card className="bg-slate-800 border-slate-700">
-                <CardHeader>
-                  <CardTitle className="text-white flex items-center gap-2">
-                    <FolderKanban className="w-5 h-5" style={{ color: "#C5A572" }} />
-                    Pending Project Requests ({pendingProjects.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {pendingProjects.slice(0, 5).map((project) => (
-                      <div key={project.id} className="flex items-center justify-between p-4 bg-slate-700 rounded-lg">
-                        <div className="flex-1">
-                          <p className="font-medium text-white">{project.name}</p>
-                          <p className="text-sm text-slate-400">
-                            Client: {project.client?.full_name || project.client?.email}
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            Budget: TSH {project.budget?.toLocaleString() || "N/A"}
-                          </p>
-                        </div>
-                        <Button asChild size="sm" className="bg-[#C5A572] hover:bg-[#B39562]">
-                          <Link href="/admin/projects">Review</Link>
-                        </Button>
+            <Card className="bg-slate-800 border-slate-700">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <FolderKanban className="w-5 h-5" style={{ color: "#C5A572" }} />
+                  Pending Project Requests ({pendingProjects.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {pendingProjects.slice(0, 5).map((project) => (
+                    <div key={project.id} className="flex items-center justify-between p-4 bg-slate-700 rounded-lg">
+                      <div className="flex-1">
+                        <p className="font-medium text-white">{project.name}</p>
+                        <p className="text-sm text-slate-400">
+                          Client: {project.client?.full_name || project.client?.email}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          Budget: {project.currency === "USD" ? "$" : "TSH"} {project.budget?.toLocaleString() || "N/A"}
+                        </p>
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                      <Button asChild size="sm" className="bg-[#C5A572] hover:bg-[#B39562]">
+                        <Link href="/admin/projects">Review</Link>
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
 
@@ -303,7 +235,9 @@ export default function AdminDashboard() {
             <CardHeader>
               <FileText className="w-8 h-8 mb-2" style={{ color: "#1E3A5F" }} />
               <CardTitle className="text-white">Invoice Management</CardTitle>
-              <CardDescription className="text-slate-400">Create and manage invoices and payments</CardDescription>
+              <CardDescription className="text-slate-400">
+                Create and manage invoices for projects and equipment rentals
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <Button asChild className="w-full bg-[#1E3A5F] hover:bg-[#152B47] text-white">

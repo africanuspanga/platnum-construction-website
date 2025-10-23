@@ -5,7 +5,13 @@ import { emailTemplates } from "@/lib/email/resend"
 // GET /api/projects - List projects (filtered by role)
 export async function GET(request: NextRequest) {
   try {
-    const { user, supabase } = await requireAuth()
+    const authResult = await requireAuth()
+
+    if (authResult instanceof NextResponse) {
+      return authResult
+    }
+
+    const { user, supabase } = authResult
     const searchParams = request.nextUrl.searchParams
 
     const status = searchParams.get("status")
@@ -53,7 +59,13 @@ export async function GET(request: NextRequest) {
 // POST /api/projects - Create new project
 export async function POST(request: NextRequest) {
   try {
-    const { user, supabase } = await requireAuth(request)
+    const authResult = await requireAuth(request)
+
+    if (authResult instanceof NextResponse) {
+      return authResult
+    }
+
+    const { user, supabase } = authResult
     const body = await request.json()
 
     const isClient = user.role === "client"

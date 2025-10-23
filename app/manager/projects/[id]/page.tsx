@@ -72,6 +72,53 @@ export default function ManagerProjectDetailPage() {
   useEffect(() => {
     if (projectId) {
       fetchProjectData()
+
+      const updatesChannel = supabase
+        .channel(`project-updates-${projectId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "project_updates",
+            filter: `project_id=eq.${projectId}`,
+          },
+          () => {
+            console.log("[v0] Real-time update received for project updates")
+            fetchProjectData()
+          },
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "project_comments",
+            filter: `project_id=eq.${projectId}`,
+          },
+          () => {
+            console.log("[v0] Real-time update received for project comments")
+            fetchProjectData()
+          },
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "project_files",
+            filter: `project_id=eq.${projectId}`,
+          },
+          () => {
+            console.log("[v0] Real-time update received for project files")
+            fetchProjectData()
+          },
+        )
+        .subscribe()
+
+      return () => {
+        supabase.removeChannel(updatesChannel)
+      }
     }
   }, [projectId])
 

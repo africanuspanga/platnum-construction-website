@@ -34,6 +34,7 @@ type Project = {
   start_date: string | null
   end_date: string | null
   budget: number | null
+  currency: "USD" | "TSH"
   created_at: string
   approved_at?: string
   approved_by?: string
@@ -57,6 +58,7 @@ type FormData = {
   start_date: string
   end_date: string
   budget: string
+  currency: "USD" | "TSH"
 }
 
 const ProjectForm = ({
@@ -76,35 +78,43 @@ const ProjectForm = ({
 }) => (
   <form onSubmit={onSubmit} className="space-y-4">
     <div className="space-y-2">
-      <Label htmlFor="name">Project Name *</Label>
+      <Label htmlFor="name" className="text-white">
+        Project Name *
+      </Label>
       <Input
         id="name"
         value={formData.name}
         onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
         required
         placeholder="New Office Building"
+        className="bg-slate-700 border-slate-600 text-white"
       />
     </div>
 
     <div className="space-y-2">
-      <Label htmlFor="description">Description</Label>
+      <Label htmlFor="description" className="text-white">
+        Description
+      </Label>
       <Textarea
         id="description"
         value={formData.description}
         onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
         placeholder="Project details and requirements..."
         rows={3}
+        className="bg-slate-700 border-slate-600 text-white"
       />
     </div>
 
     <div className="grid grid-cols-2 gap-4">
       <div className="space-y-2">
-        <Label htmlFor="client">Client *</Label>
+        <Label htmlFor="client" className="text-white">
+          Client *
+        </Label>
         <Select
           value={formData.client_id}
           onValueChange={(value) => setFormData((prev) => ({ ...prev, client_id: value }))}
         >
-          <SelectTrigger>
+          <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
             <SelectValue placeholder="Select client" />
           </SelectTrigger>
           <SelectContent>
@@ -118,12 +128,14 @@ const ProjectForm = ({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="manager">Project Manager</Label>
+        <Label htmlFor="manager" className="text-white">
+          Project Manager
+        </Label>
         <Select
           value={formData.manager_id}
           onValueChange={(value) => setFormData((prev) => ({ ...prev, manager_id: value }))}
         >
-          <SelectTrigger>
+          <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
             <SelectValue placeholder="Select manager" />
           </SelectTrigger>
           <SelectContent>
@@ -139,34 +151,42 @@ const ProjectForm = ({
 
     <div className="grid grid-cols-2 gap-4">
       <div className="space-y-2">
-        <Label htmlFor="start_date">Start Date</Label>
+        <Label htmlFor="start_date" className="text-white">
+          Start Date
+        </Label>
         <Input
           id="start_date"
           type="date"
           value={formData.start_date}
           onChange={(e) => setFormData((prev) => ({ ...prev, start_date: e.target.value }))}
+          className="bg-slate-700 border-slate-600 text-white"
         />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="end_date">End Date</Label>
+        <Label htmlFor="end_date" className="text-white">
+          End Date
+        </Label>
         <Input
           id="end_date"
           type="date"
           value={formData.end_date}
           onChange={(e) => setFormData((prev) => ({ ...prev, end_date: e.target.value }))}
+          className="bg-slate-700 border-slate-600 text-white"
         />
       </div>
     </div>
 
     <div className="grid grid-cols-2 gap-4">
       <div className="space-y-2">
-        <Label htmlFor="status">Status</Label>
+        <Label htmlFor="status" className="text-white">
+          Status
+        </Label>
         <Select
           value={formData.status}
           onValueChange={(value: any) => setFormData((prev) => ({ ...prev, status: value }))}
         >
-          <SelectTrigger>
+          <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -179,16 +199,37 @@ const ProjectForm = ({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="budget">Budget ($)</Label>
-        <Input
-          id="budget"
-          type="number"
-          step="0.01"
-          value={formData.budget}
-          onChange={(e) => setFormData((prev) => ({ ...prev, budget: e.target.value }))}
-          placeholder="50000.00"
-        />
+        <Label htmlFor="currency" className="text-white">
+          Currency
+        </Label>
+        <Select
+          value={formData.currency}
+          onValueChange={(value: "USD" | "TSH") => setFormData((prev) => ({ ...prev, currency: value }))}
+        >
+          <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="USD">USD ($)</SelectItem>
+            <SelectItem value="TSH">TSH (TSh)</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
+    </div>
+
+    <div className="space-y-2">
+      <Label htmlFor="budget" className="text-white">
+        Budget ({formData.currency === "USD" ? "$" : "TSh"})
+      </Label>
+      <Input
+        id="budget"
+        type="number"
+        step="0.01"
+        value={formData.budget}
+        onChange={(e) => setFormData((prev) => ({ ...prev, budget: e.target.value }))}
+        placeholder={formData.currency === "USD" ? "50000.00" : "100000000.00"}
+        className="bg-slate-700 border-slate-600 text-white"
+      />
     </div>
 
     <Button type="submit" className="w-full bg-[#C5A572] hover:bg-[#B39562]">
@@ -222,6 +263,7 @@ export default function AdminProjectsPage() {
     start_date: "",
     end_date: "",
     budget: "",
+    currency: "USD",
   })
 
   const supabase = createBrowserClient()
@@ -281,6 +323,7 @@ export default function AdminProjectsPage() {
           start_date: formData.start_date || null,
           end_date: formData.end_date || null,
           budget: formData.budget ? Number.parseFloat(formData.budget) : null,
+          currency: formData.currency,
         },
       ])
 
@@ -311,6 +354,7 @@ export default function AdminProjectsPage() {
           start_date: formData.start_date || null,
           end_date: formData.end_date || null,
           budget: formData.budget ? Number.parseFloat(formData.budget) : null,
+          currency: formData.currency,
         })
         .eq("id", selectedProject.id)
 
@@ -356,7 +400,6 @@ export default function AdminProjectsPage() {
 
       if (error) throw error
 
-      // Send notification email
       await fetch("/api/email/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -389,6 +432,7 @@ export default function AdminProjectsPage() {
       start_date: project.start_date || "",
       end_date: project.end_date || "",
       budget: project.budget?.toString() || "",
+      currency: project.currency || "USD",
     })
     setIsEditDialogOpen(true)
   }
@@ -408,6 +452,7 @@ export default function AdminProjectsPage() {
       start_date: "",
       end_date: "",
       budget: "",
+      currency: "USD",
     })
   }
 
@@ -489,16 +534,16 @@ export default function AdminProjectsPage() {
 
       <div className="flex gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
           <Input
             placeholder="Search projects..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
+            className="pl-10 bg-slate-800 border-slate-700 text-white placeholder:text-slate-400"
           />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[200px]">
+          <SelectTrigger className="w-[200px] bg-slate-800 border-slate-700 text-white">
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
           <SelectContent>
@@ -521,7 +566,6 @@ export default function AdminProjectsPage() {
                   <Badge className={getStatusColor(project.status)}>{project.status.replace("_", " ")}</Badge>
                 </div>
                 <div className="flex gap-2">
-                  {/* Approve & Assign Button */}
                   {project.status === "planning" && !project.manager_id && (
                     <Button
                       variant="default"
@@ -575,7 +619,9 @@ export default function AdminProjectsPage() {
                   <div className="flex items-center gap-2">
                     <DollarSign className="w-4 h-4 text-slate-400" />
                     <span className="text-slate-400">Budget:</span>
-                    <span className="font-medium text-white">${project.budget.toLocaleString()}</span>
+                    <span className="font-medium text-white">
+                      {project.currency === "USD" ? "$" : "TSh"} {project.budget.toLocaleString()}
+                    </span>
                   </div>
                 )}
 
@@ -598,7 +644,6 @@ export default function AdminProjectsPage() {
         </div>
       )}
 
-      {/* Assignment Dialog */}
       <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
         <DialogContent className="bg-slate-800 border-slate-700">
           <DialogHeader>
@@ -643,7 +688,6 @@ export default function AdminProjectsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-slate-800 border-slate-700">
           <DialogHeader>

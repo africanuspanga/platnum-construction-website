@@ -1,0 +1,11 @@
+# robots.txt for platnumconstruction.co.tz
+
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /dashboard/
+Disallow: /manager/
+Disallow: /api/
+
+# Sitemap
+Sitemap: https://platnumconstruction.co.tz/sitemap.xml

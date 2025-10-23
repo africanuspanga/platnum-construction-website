@@ -247,6 +247,7 @@ export default function RentPage() {
       rate: "1,200,000.00",
       time: "per trip",
     },
+    { id: "18", name: "Roller-Compactor", rate: "600,000.00", time: "8hrs" },
   ]
 
   const addToCart = (equipment: Equipment, startDate: string, endDate: string) => {
@@ -497,12 +498,13 @@ export default function RentPage() {
                   "/images/equipment/toyota-townace.png",
                   "/images/equipment/mitsubishi-fuso.png",
                   "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/CIMC%20Lowbed%20Trailer%20with%20Tractor%20%28For%20Haulage%20Services%29%20-PcDywhnjSR5XXlgYtvCM4x3hYBikeL.png",
+                  "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/csm_BW_212_D_SL_S_f1d1fd92f3-wuNNzOHikM8VlH8KboqCu6a6mXV75O.webp",
                 ]
 
                 return (
                   <Card key={item.id} className="overflow-hidden hover:shadow-lg transition-shadow bg-white">
                     <div className="aspect-[4/3] bg-white flex items-center justify-center overflow-hidden">
-                      {index < 17 ? (
+                      {index < 18 ? (
                         <img
                           src={equipmentImages[index] || "/placeholder.svg"}
                           alt={item.name}

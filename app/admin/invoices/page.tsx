@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth/auth-context"
 import { Button } from "@/components/ui/button"
@@ -26,6 +26,7 @@ export default function AdminInvoicesPage() {
   const [projects, setProjects] = useState<any[]>([])
   const [clients, setClients] = useState<any[]>([])
   const [isUploading, setIsUploading] = useState(false)
+  const hasFetchedData = useRef(false)
   const [invoiceForm, setInvoiceForm] = useState({
     client_id: "",
     project_id: "",
@@ -40,13 +41,15 @@ export default function AdminInvoicesPage() {
   useEffect(() => {
     if (!loading && (!user || userRole !== "admin")) {
       router.push("/login")
+      return
     }
-    if (user && userRole === "admin") {
+    if (user && userRole === "admin" && !hasFetchedData.current) {
+      hasFetchedData.current = true
       fetchInvoices()
       fetchProjects()
       fetchClients()
     }
-  }, [user, userRole, loading, router])
+  }, [user, userRole, loading])
 
   const fetchClients = async () => {
     try {
@@ -104,41 +107,59 @@ export default function AdminInvoicesPage() {
     try {
       let pdfUrl = null
 
-      // Upload PDF to Cloudinary if provided
       if (invoiceForm.pdf_file) {
         const formData = new FormData()
         formData.append("file", invoiceForm.pdf_file)
         formData.append("upload_preset", process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "")
 
+        console.log("[v0] Uploading PDF to Cloudinary...")
+        console.log("[v0] Cloud name:", process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME)
+        console.log("[v0] Upload preset:", process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET)
+
         const cloudinaryResponse = await fetch(
-          `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/upload`,
+          `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/raw/upload`,
           {
             method: "POST",
             body: formData,
           },
         )
 
+        console.log("[v0] Cloudinary response status:", cloudinaryResponse.status)
+
         if (!cloudinaryResponse.ok) {
-          throw new Error("Failed to upload PDF")
+          const errorText = await cloudinaryResponse.text()
+          console.error("[v0] Cloudinary error response:", errorText)
+          throw new Error(`Failed to upload PDF: ${errorText}`)
         }
 
         const cloudinaryData = await cloudinaryResponse.json()
+        console.log("[v0] Cloudinary upload successful:", cloudinaryData.secure_url)
         pdfUrl = cloudinaryData.secure_url
+      }
+
+      console.log("[v0] Creating invoice with data:", {
+        client_id: invoiceForm.client_id,
+        project_id: invoiceForm.project_id || null,
+        amount: Number.parseFloat(invoiceForm.amount),
+        pdf_url: pdfUrl,
+      })
+
+      const invoiceData = {
+        client_id: invoiceForm.client_id,
+        project_id: invoiceForm.project_id || null,
+        amount: Number.parseFloat(invoiceForm.amount),
+        due_date: invoiceForm.due_date,
+        notes: invoiceForm.description,
+        status: invoiceForm.status,
+        pdf_url: pdfUrl,
+        invoice_type: invoiceForm.invoice_type,
       }
 
       const response = await fetch("/api/invoices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          client_id: invoiceForm.client_id,
-          project_id: invoiceForm.project_id || null,
-          amount: Number.parseFloat(invoiceForm.amount),
-          due_date: invoiceForm.due_date,
-          notes: invoiceForm.description,
-          status: invoiceForm.status,
-          pdf_url: pdfUrl,
-          invoice_type: invoiceForm.invoice_type,
-        }),
+        credentials: "include",
+        body: JSON.stringify(invoiceData),
       })
 
       if (!response.ok) {
@@ -146,6 +167,7 @@ export default function AdminInvoicesPage() {
         throw new Error(errorData.error || "Failed to create invoice")
       }
 
+      console.log("[v0] Invoice created successfully")
       setIsCreateDialogOpen(false)
       setInvoiceForm({
         client_id: "",
@@ -160,7 +182,7 @@ export default function AdminInvoicesPage() {
       fetchInvoices()
       alert("Invoice created successfully!")
     } catch (error: any) {
-      console.error("Error creating invoice:", error)
+      console.error("[v0] Error creating invoice:", error)
       alert("Failed to create invoice: " + error.message)
     } finally {
       setIsUploading(false)
@@ -330,14 +352,19 @@ export default function AdminInvoicesPage() {
                       <SelectTrigger>
                         <SelectValue placeholder="Select client" />
                       </SelectTrigger>
-                      <SelectContent>
-                        {clients.map((client) => (
-                          <SelectItem key={client.id} value={client.id}>
-                            {client.full_name} {client.company_name ? `(${client.company_name})` : ""}
-                          </SelectItem>
-                        ))}
+                      <SelectContent className="max-h-[300px]">
+                        {clients.length === 0 ? (
+                          <div className="p-2 text-sm text-slate-400">No clients found</div>
+                        ) : (
+                          clients.map((client) => (
+                            <SelectItem key={client.id} value={client.id}>
+                              {client.full_name} {client.email ? `(${client.email})` : ""}
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
+                    {clients.length === 0 && <p className="text-xs text-slate-400">Loading clients...</p>}
                   </div>
 
                   <div className="space-y-2">
@@ -406,9 +433,9 @@ export default function AdminInvoicesPage() {
                   <div className="flex gap-2">
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant="outline"
                       onClick={() => setIsCreateDialogOpen(false)}
-                      className="flex-1 bg-slate-700 text-white hover:bg-slate-600"
+                      className="flex-1"
                       disabled={isUploading}
                     >
                       Cancel
@@ -438,15 +465,29 @@ export default function AdminInvoicesPage() {
                       <SelectTrigger>
                         <SelectValue placeholder="Select project" />
                       </SelectTrigger>
-                      <SelectContent>
-                        {projects.map((project) => (
-                          <SelectItem key={project.id} value={project.id}>
-                            {project.name} - {project.client?.full_name}
-                          </SelectItem>
-                        ))}
+                      <SelectContent className="max-h-[300px]">
+                        {projects.length === 0 ? (
+                          <div className="p-2 text-sm text-slate-400">No projects found</div>
+                        ) : (
+                          projects.map((project) => (
+                            <SelectItem key={project.id} value={project.id}>
+                              {project.name} - {project.client?.full_name || "No client"}
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
+                    {projects.length === 0 && <p className="text-xs text-slate-400">Loading projects...</p>}
                   </div>
+
+                  {invoiceForm.client_id && (
+                    <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-md border">
+                      <p className="text-sm text-slate-600 dark:text-slate-400">Client:</p>
+                      <p className="font-medium">
+                        {clients.find((c) => c.id === invoiceForm.client_id)?.full_name || "Unknown"}
+                      </p>
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <Label>Upload PDF Invoice (Optional)</Label>
@@ -511,9 +552,9 @@ export default function AdminInvoicesPage() {
                   <div className="flex gap-2">
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant="outline"
                       onClick={() => setIsCreateDialogOpen(false)}
-                      className="flex-1 bg-slate-700 text-white hover:bg-slate-600"
+                      className="flex-1"
                       disabled={isUploading}
                     >
                       Cancel
