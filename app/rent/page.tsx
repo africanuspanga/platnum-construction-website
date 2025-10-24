@@ -1,7 +1,5 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useCallback, memo } from "react"
 import { Navigation } from "@/components/navigation"
 import { Footer } from "@/components/footer"
@@ -12,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Plus, Minus, ShoppingCart, Trash2, Calendar } from "lucide-react"
+import { Plus, Minus, ShoppingCart, Trash2, Calendar, Copy, ExternalLink } from "lucide-react"
 
 interface Equipment {
   id: string
@@ -223,6 +221,9 @@ export default function RentPage() {
   const [guestEmail, setGuestEmail] = useState("")
   const [guestCompany, setGuestCompany] = useState("")
   const [notes, setNotes] = useState("")
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false)
+  const [whatsappLink, setWhatsappLink] = useState("")
+  const [whatsappMessageText, setWhatsappMessageText] = useState("")
 
   const equipmentData: Equipment[] = [
     { id: "1", name: "Caterpillar Motor Grader", rate: "800,000.00", time: "8hrs" },
@@ -422,24 +423,35 @@ export default function RentPage() {
         throw new Error(data.error || "Failed to submit rental request")
       }
 
-      const whatsappMessage = `*EQUIPMENT RENTAL REQUEST*%0A%0A*Customer Details:*%0AName: ${encodeURIComponent(guestName)}%0APhone: ${encodeURIComponent(guestPhone)}${guestEmail ? `%0AEmail: ${encodeURIComponent(guestEmail)}` : ""}${guestCompany ? `%0ACompany: ${encodeURIComponent(guestCompany)}` : ""}%0A%0A*Equipment Requested:*%0A${cart.map((item) => `%0A${encodeURIComponent(item.name)}%0A- Dates: ${new Date(item.startDate).toLocaleDateString()} to ${new Date(item.endDate).toLocaleDateString()}%0A- Duration: ${item.totalDays} days%0A- Quantity: ${item.quantity}%0A- Rate: TSH ${item.rate}/day%0A- Subtotal: TSH ${(Number.parseFloat(item.rate.replace(/,/g, "")) * item.totalDays * item.quantity).toLocaleString()}`).join("")}%0A%0A*Total Cost: TSH ${getTotalCost().toLocaleString()}*${notes ? `%0A%0A*Notes:*%0A${encodeURIComponent(notes)}` : ""}`
+      const whatsappMessageFormatted = `*EQUIPMENT RENTAL REQUEST*\n\n*Customer Details:*\nName: ${guestName}\nPhone: ${guestPhone}${guestEmail ? `\nEmail: ${guestEmail}` : ""}${guestCompany ? `\nCompany: ${guestCompany}` : ""}\n\n*Equipment Requested:*\n${cart.map((item) => `\n${item.name}\n- Dates: ${new Date(item.startDate).toLocaleDateString()} to ${new Date(item.endDate).toLocaleDateString()}\n- Duration: ${item.totalDays} days\n- Quantity: ${item.quantity}\n- Rate: TSH ${item.rate}/day\n- Subtotal: TSH ${(Number.parseFloat(item.rate.replace(/,/g, "")) * item.totalDays * item.quantity).toLocaleString()}`).join("")}\n\n*Total Cost: TSH ${getTotalCost().toLocaleString()}*${notes ? `\n\n*Notes:*\n${notes}` : ""}`
 
+      const whatsappMessageEncoded = encodeURIComponent(whatsappMessageFormatted)
       const whatsappNumber = "255749777700"
-      window.open(`https://wa.me/${whatsappNumber}?text=${whatsappMessage}`, "_blank")
+      const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${whatsappMessageEncoded}`
 
-      setCart([])
-      setGuestName("")
-      setGuestPhone("")
-      setGuestEmail("")
-      setGuestCompany("")
-      setNotes("")
-      setIsCartOpen(false)
+      setWhatsappLink(whatsappUrl)
+      setWhatsappMessageText(whatsappMessageFormatted)
 
-      alert(
-        "Your rental request has been sent! Please complete the WhatsApp message that just opened. Our team will contact you shortly at " +
-          guestPhone +
-          " to confirm your booking.",
-      )
+      const whatsappWindow = window.open(whatsappUrl, "_blank")
+
+      if (!whatsappWindow || whatsappWindow.closed || typeof whatsappWindow.closed === "undefined") {
+        console.log("[v0] Popup blocked, showing fallback modal")
+        setShowWhatsAppModal(true)
+      } else {
+        setCart([])
+        setGuestName("")
+        setGuestPhone("")
+        setGuestEmail("")
+        setGuestCompany("")
+        setNotes("")
+        setIsCartOpen(false)
+
+        alert(
+          "Your rental request has been sent! Please complete the WhatsApp message that just opened. Our team will contact you shortly at " +
+            guestPhone +
+            " to confirm your booking.",
+        )
+      }
     } catch (error: any) {
       console.error("[v0] Error submitting rental request:", error)
       alert(
@@ -450,11 +462,26 @@ export default function RentPage() {
     }
   }
 
-  const handleNotesChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setNotes(e.target.value)
-  }, [])
+  const handleCopyMessage = async () => {
+    try {
+      await navigator.clipboard.writeText(whatsappMessageText)
+      alert("Message copied to clipboard! You can now paste it in WhatsApp.")
+    } catch (error) {
+      console.error("[v0] Failed to copy:", error)
+      alert("Failed to copy message. Please try selecting and copying manually.")
+    }
+  }
 
-  // Removed the original CartContent function and replaced with the memoized component above
+  const handleWhatsAppModalSuccess = () => {
+    setShowWhatsAppModal(false)
+    setCart([])
+    setGuestName("")
+    setGuestPhone("")
+    setGuestEmail("")
+    setGuestCompany("")
+    setNotes("")
+    setIsCartOpen(false)
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -692,6 +719,43 @@ export default function RentPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showWhatsAppModal} onOpenChange={setShowWhatsAppModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Complete Your Request via WhatsApp</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Your rental request has been saved. Please click the button below to send it via WhatsApp, or copy the
+              message and send it manually.
+            </p>
+
+            <div className="flex flex-col gap-2">
+              <Button asChild className="w-full" size="lg">
+                <a href={whatsappLink} target="_blank" rel="noopener noreferrer" onClick={handleWhatsAppModalSuccess}>
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Open WhatsApp
+                </a>
+              </Button>
+
+              <Button variant="outline" onClick={handleCopyMessage} className="w-full bg-transparent">
+                <Copy className="h-4 w-4 mr-2" />
+                Copy Message
+              </Button>
+            </div>
+
+            <div className="text-xs text-muted-foreground space-y-1">
+              <p>
+                <strong>WhatsApp Number:</strong> +255 749 777 700
+              </p>
+              <p>
+                <strong>Email:</strong> info@platnumconstruction.co.tz
+              </p>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
